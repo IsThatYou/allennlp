@@ -72,13 +72,37 @@ class Predictor(Registrable):
         """
         raise NotImplementedError
 
-    def get_gradients(self, inputs: JsonDict) -> Dict[str, np.ndarray]:
+    def attack_from_json(self, inputs: JsonDict) -> JsonDict:
+        """
+        Uses the gradients from :func:`get_gradients` to provide 
+        adversarial attacks for specific models. 
+
+        Raises
+        ------
+        NotImplementedError
+            This method should be overriden by the specific predictor class of each
+            predictor.
+        """
+        raise NotImplementedError
+
+    def get_model_predictions(self, inputs:JsonDict) -> List[Instance]:
+        """
+        TODO
+        """
+        instance = self._json_to_instance(inputs)
+        outputs = self._model.forward_on_instance(instance)
+        # Predictions to labels is specific to each predictor,
+        # but get_gradients need to be on base class => needs reworking! 
+        new_instances = self.predictions_to_labels(instance, outputs)
+        return new_instances
+
+    def get_gradients(self, instances: List[Instance]) -> Dict[str, np.ndarray]:
         """
         Gets the gradients of the loss with respect to the model inputs. 
 
         Parameters
         ----------
-        inputs: JsonDict
+        instances: List[Instance]
 
         Returns
         -------
@@ -95,15 +119,9 @@ class Predictor(Registrable):
         layer of the model. Calls :func:`backward` on the loss and then removes the
         hooks. 
         """
-        instance = self._json_to_instance(inputs)
-        outputs = self._model.forward_on_instance(instance)
-        # Predictions to labels is specific to each predictor,
-        # but get_gradients need to be on base class => needs reworking! 
-        new_instances = self.predictions_to_labels(instance, outputs)
-
         self._register_hooks()
 
-        dataset = Batch(new_instances)
+        dataset = Batch(instances)
         dataset.index_instances(self._model.vocab)
 
         # Using forward_on_instances converts the output into numpy arrays
