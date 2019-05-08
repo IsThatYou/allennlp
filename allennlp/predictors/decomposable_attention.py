@@ -1,6 +1,6 @@
 
 from overrides import overrides
-from allennlp.common.util import JsonDict
+from allennlp.common.util import JsonDict, sanitize 
 from allennlp.data import Instance
 from allennlp.predictors.predictor import Predictor
 
@@ -38,3 +38,17 @@ class DecomposableAttentionPredictor(Predictor):
         premise_text = json_dict["premise"]
         hypothesis_text = json_dict["hypothesis"]
         return self._dataset_reader.text_to_instance(premise_text, hypothesis_text)
+
+    @overrides
+    def interpret_from_json(self, inputs: JsonDict) -> JsonDict:
+        """
+        Gets the gradients of the loss with respect to the input and
+        returns them normalized and sanitized.  
+        """
+        return sanitize(self._normalize(self.get_gradients(inputs)))
+
+    @overrides
+    def predictions_to_labels(self, instance: Instance, outputs: Dict[str, np.ndarray]) -> List[Instance]:
+        label = np.argmax(outputs['label_logits'])
+        instance.add_field('label', LabelField(int(label), skip_indexing=True))
+        return [instance]
