@@ -1,6 +1,8 @@
-from typing import List, Iterator
+from typing import List, Iterator, Dict 
 import json
 from contextlib import contextmanager
+
+import numpy as np
 
 from allennlp.common import Registrable
 from allennlp.common.checks import ConfigurationError
@@ -57,6 +59,139 @@ class Predictor(Registrable):
         instance = self._json_to_instance(inputs)
         return self.predict_instance(instance)
 
+    def interpret_from_json(self, inputs: JsonDict) -> JsonDict:
+        """
+        Uses the gradients from :func:`get_gradients` to provide 
+        normalized interpretations for specific models. 
+
+        Raises
+        ------
+        NotImplementedError
+            This method should be overriden by the specific predictor class of each
+            predictor.
+        """
+        raise NotImplementedError
+
+    def get_gradients(self, inputs: JsonDict) -> Dict[str, np.ndarray]:
+        """
+        Gets the gradients of the loss with respect to the model inputs. 
+
+        Parameters
+        ----------
+        inputs: JsonDict
+
+        Returns
+        -------
+        Dict[str, np.ndarray]
+            Dictionary of gradient entries for each input fed into the model.
+            The keys have the form ``{grad_input_1: ..., grad_input_2: ... }``
+            up to the number of inputs given. 
+
+        Notes
+        -----
+        Takes a ``JsonDict`` representing the inputs of the model and converts
+        them to :class:`~allennlp.data.instance.Instance`s, sends these through
+        the model :func:`forward` function after registering hooks on the embedding
+        layer of the model. Calls :func:`backward` on the loss and then removes the
+        hooks. 
+        """
+        instance = self._json_to_instance(inputs)
+        outputs = self._model.forward_on_instance(instance)
+        # Predictions to labels is specific to each predictor,
+        # but get_gradients need to be on base class => needs reworking! 
+        new_instances = self.predictions_to_labels(instance, outputs)
+
+        self._register_hooks()
+
+        dataset = Batch(new_instances)
+        dataset.index_instances(self._model.vocab)
+
+        # Using forward_on_instances converts the output into numpy arrays
+        # instead of keeping the original torch Tensors, so rn we're using the 
+        # forward function instead. 
+        outputs = self._model.decode(self._model.forward(**dataset.as_tensor_dict()))
+        
+        logits = outputs['label_logits']
+        label = torch.max(logits, 1)[1]
+
+        loss = self._model._loss(logits, label)
+
+        # Zero out computation graph
+        self._model.zero_grad()
+
+        # Get the gradients 
+        loss.backward()
+
+        # Remove hooks 
+        for hook in self.hooks:
+            hook.remove()
+
+        grad_dict = Dict()
+        for idx, grad in enumerate(self.extracted_grads):
+            key = 'grad_input' + str(idx + 1)
+            # squeeze to remove batch dimension
+            grad_dict[key] = grad.squeeze_(0).detach().cpu().numpy()
+
+        return grad_dict 
+
+    def _register_hooks(self):
+        """
+        Registers a backward hook on the 
+        :class:`~allennlp.modules.text_field_embedder.basic_text_field_embbedder.BasicTextFieldEmbedder`
+        class. 
+        """
+        # For multiple inputs, the hook will be called multiple times
+        # so we append the incoming gradients to a list
+        self.extracted_grads = []
+        self.hooks = []
+
+        def hook_layers(module, grad_in, grad_out):
+            # grad_in is a tuple with gradients at first slot
+            self.extracted_grads.append(grad_in[0])
+
+        # Register the hooks
+        for module in self._model.modules():
+            # We register on BasicTextFieldEmbedder as this seems to 
+            # be more general; just "Embedding" does not work
+            # for Elmo 
+            if isinstance(module, BasicTextFieldEmbedder):
+                hook = module.register_backward_hook(hook_layers)
+                self.hooks.append(hook)
+
+    def _normalize(self, grads: Dict[str, np.ndarray]) -> Dict[str, np.ndarray]:
+        """
+        Normalize the gradients into the range [0,1] for visualization. 
+
+        Notes
+        -----
+        0.0 is dark red and 1.0 is dark blue. 0.5 is no highlight. 
+        This normalization step is very rarely discussed in the 
+        literature and the interpretation is actually quite sensitive to it. 
+        In the code below, we normalize scores across the words, doing positive 
+        and negatives seperately.
+        """
+
+        for key, grad in grads.items():
+            grad = np.sum(grad, axis=1)
+            total_score_pos = 0
+            total_score_neg = 0
+            for idx, s in enumerate(grad):
+                if s < 0:
+                    total_score_neg = total_score_neg + math.fabs(s)
+                else:
+                    total_score_pos = total_score_pos + s
+            for idx, s in enumerate(grad):
+                if s < 0:
+                    # / by 2 to get max of -0.5
+                    grad[idx] = (s / total_score_neg) / 2  
+                else:
+                    grad[idx] = (s / total_score_pos) / 2
+            # center scores
+            grad = [0.5 + n for n in grad]  
+            grads[key] = grad 
+        return grads 
+
+
     @contextmanager
     def capture_model_internals(self) -> Iterator[dict]:
         """
@@ -102,6 +237,18 @@ class Predictor(Registrable):
         such as tokenised inputs.
         """
         raise NotImplementedError
+
+    def predictions_to_labels(self, instance: Instance, outputs: Dict[str, np.ndarray]) -> List[Instance]:
+        """
+        Adds labels to the :class:`~allennlp.data.instance.Instance`s passed in. 
+
+        Raises
+        ------
+        NotImplementedError
+            This method should be overriden by the specific predictor class of each
+            predictor.
+        """
+        raise NotImplementedError 
 
     def predict_batch_json(self, inputs: List[JsonDict]) -> List[JsonDict]:
         instances = self._batch_json_to_instances(inputs)
