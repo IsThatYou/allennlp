@@ -10,6 +10,8 @@ from allennlp.common.util import JsonDict, sanitize
 from allennlp.data import DatasetReader, Instance
 from allennlp.models import Model
 from allennlp.models.archival import Archive, load_archive
+from allennlp.modules.text_field_embedders import BasicTextFieldEmbedder
+from allennlp.data.dataset import Batch
 
 # a mapping from model `type` to the default Predictor for that type
 DEFAULT_PREDICTORS = {
@@ -127,13 +129,9 @@ class Predictor(Registrable):
         # Using forward_on_instances converts the output into numpy arrays
         # instead of keeping the original torch Tensors, so rn we're using the 
         # forward function instead. 
-        outputs = self._model.decode(self._model.forward(**dataset.as_tensor_dict()))
+        outputs = self._model(**dataset.as_tensor_dict())
         
-        logits = outputs['label_logits']
-        label = torch.max(logits, 1)[1]
-
-        loss = self._model._loss(logits, label)
-
+        loss = outputs["loss"]
         # Zero out computation graph
         self._model.zero_grad()
 
@@ -144,13 +142,13 @@ class Predictor(Registrable):
         for hook in self.hooks:
             hook.remove()
 
-        grad_dict = Dict()
+        grad_dict = dict()
         for idx, grad in enumerate(self.extracted_grads):
             key = 'grad_input' + str(idx + 1)
             # squeeze to remove batch dimension
             grad_dict[key] = grad.squeeze_(0).detach().cpu().numpy()
 
-        return grad_dict 
+        return grad_dict, outputs
 
     def _register_hooks(self):
         """
