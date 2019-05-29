@@ -1,4 +1,4 @@
-from typing import Dict, List 
+from typing import Dict, List, Set
 import numpy as np
 
 from overrides import overrides
@@ -54,7 +54,7 @@ class DecomposableAttentionPredictor(Predictor):
         return [instance]
 
     @overrides
-    def attack_from_json(self, inputs: JsonDict) -> Dict[str, np.ndarray]:
+    def attack_from_json(self, inputs: JsonDict, target_field: str = "hypothesis", ignore_tokens:List[str] = ["@@NULL@@"]) -> Dict[str, np.ndarray]:
         """
         TODO
         """
@@ -65,26 +65,36 @@ class DecomposableAttentionPredictor(Predictor):
         new_label = label
         logits = 0
 
-        while ((new_label == label) & (len(new_instances[0]["hypothesis"])>1)) :
-          print("Input:",inputs)
+        # handling ignore tokens
+        ignore_tokens = set(ignore_tokens)
+        num_ignore_tokens = 0
+        for token in new_instances[0][target_field].tokens:
+            if token in ignore_tokens:
+                num_ignore_tokens += 1
+        last_tokens = new_instances[0][target_field].tokens
+
+        while (len(new_instances[0][target_field])>=num_ignore_tokens) :
           last_label = new_label
           last_logits = logits
           #new_instances[0].fields.pop('label_logits', None)
 
           grads,outputs = self.get_gradients(new_instances)
-          #print(grads.keys())
-          new_instances = self.pathological_attack(grads["grad_input1"], new_instances)
-          print(new_instances[0])
-          outputs = self._model.forward_on_instances(new_instances)
-          #new_instances = self.get_model_predictions(new_instances)
-
-          logits = outputs[0]['label_logits']
+          model_output = self._model.decode(outputs)
+          logits = model_output["label_logits"].detach().cpu().numpy()[0]
           new_label = np.argmax(logits)
           print("label:", new_label, "logits:",logits)
           print("------------------------")
-        print("final adv:", new_instances[0]["hypothesis"].tokens," | label:",last_label," | logits:", last_logits)
+          if (new_label!=label):
+            #print(last_tokens)
+            break
+          #print(grads.keys())
+          last_tokens = list(new_instances[0][target_field].tokens)
+          new_instances = self.pathological_attack(grads["grad_input1"], new_instances, target_field, ignore_tokens)
+          print(new_instances[0])
+
+        print("final adv:", last_tokens," | label:",last_label," | logits:", last_logits)
         # TODO: return something else
-        return sanitize({"final":new_instances[0]["hypothesis"].tokens})
+        return sanitize({"final": last_tokens})
 
     def beam_search(self, instances:List[Instance], label:int) -> List[Instance]:
         """
@@ -135,7 +145,7 @@ class DecomposableAttentionPredictor(Predictor):
 
 
 
-    def pathological_attack(self, grads:np.ndarray, instances:List[Instance]) -> List[Instance]:     
+    def pathological_attack(self, grads:np.ndarray, instances:List[Instance], target_field: str = "hypothesis", ignore_tokens:Set[str] = {"@@NULL@@"}) -> List[Instance]:     
         """
         TODO
         """
@@ -144,10 +154,19 @@ class DecomposableAttentionPredictor(Predictor):
         for i in range(num_of_words):
             norm = np.sqrt(grads[i].dot(grads[i]))
             grads_mag.append(norm)
-        smallest = np.argmin(grads_mag)
+        #print(grads_mag)
 
-        sentence_tensor = instances[0]["hypothesis"].tokens
+        smallest = np.argmin(grads_mag)
+        #print(ignore_tokens,str(instances[0][target_field].tokens[smallest]),type(instances[0][target_field].tokens[smallest]),instances[0][target_field].tokens[smallest] in ignore_tokens)
+        while str(instances[0][target_field].tokens[smallest]) in ignore_tokens:
+            print(smallest,float("inf"))
+            grads_mag[smallest] = float("inf")
+            smallest = np.argmin(grads_mag)
+
+        #print("deleted word", instances[0][target_field].tokens[smallest])
+
+        sentence_tensor = instances[0][target_field].tokens
         del sentence_tensor[smallest]
-        instances[0]["hypothesis"].tokens = sentence_tensor
+        instances[0][target_field].tokens = sentence_tensor
         instances[0].indexed = False
         return instances  

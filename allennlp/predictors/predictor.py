@@ -173,6 +173,7 @@ class Predictor(Registrable):
             if isinstance(module, BasicTextFieldEmbedder):
                 hook = module.register_backward_hook(hook_layers)
                 self.hooks.append(hook)
+                
 
     def _normalize(self, grads: Dict[str, np.ndarray]) -> Dict[str, np.ndarray]:
         """
