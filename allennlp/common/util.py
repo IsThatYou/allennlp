@@ -44,7 +44,7 @@ JsonDict = Dict[str, Any]  # pylint: disable=invalid-name
 START_SYMBOL = '@start@'
 END_SYMBOL = '@end@'
 
-def _normalize(self, grads: Dict[str, np.ndarray]) -> Dict[str, np.ndarray]:
+def _normalize(self, grads: Dict[str, numpy.ndarray]) -> Dict[str, numpy.ndarray]:
     """
     Normalize the gradients into the range [0,1]. 
     """

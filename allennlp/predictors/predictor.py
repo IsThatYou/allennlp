@@ -77,7 +77,7 @@ class Predictor(Registrable):
         """
         raise RuntimeError("you need to implement this method if you want to give model attacks")
 
-    def inputs_to_label_instances(self, inputs: JsonDict) -> List[Instance]:
+    def inputs_to_labeled_instances(self, inputs: JsonDict) -> List[Instance]:
         """
         Converts incoming json to a :class:`~allennlp.data.instance.Instance`,
         runs the model on the newly created instance, and adds labels to the 
@@ -90,7 +90,7 @@ class Predictor(Registrable):
         """
         instance = self._json_to_instance(inputs)
         outputs = self._model.forward_on_instance(instance)
-        new_instances = self.predictions_to_labels(instance, outputs)
+        new_instances = self.predictions_to_labeled_instances(instance, outputs)
         return new_instances
 
     def get_gradients(self, instances: List[Instance]) -> Dict[str, np.ndarray]:

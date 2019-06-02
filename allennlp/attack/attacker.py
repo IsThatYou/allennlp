@@ -1,4 +1,5 @@
 from allennlp.common import Registrable
+from allennlp.common.util import JsonDict
 
 class Attacker(Registrable):
 	def __init__(self, predictor):
@@ -7,4 +8,4 @@ class Attacker(Registrable):
 		'''
 		TODO
 		'''
-		raise RuntimeError("you should implement this if you want to do model attack")
+		raise NotImplementedError("you should implement this if you want to do model attack")
