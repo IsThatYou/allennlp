@@ -83,7 +83,7 @@ class BidafPredictor(Predictor):
                 num_ignore_tokens += 1
         last_tokens = new_instances[0][target_field].tokens
 
-        while (len(new_instances[0][target_field])>=num_ignore_tokens) :
+        while (len(new_instances[0][target_field])>num_ignore_tokens) :
           last_start = new_start
           last_end = new_end
           #last_logits = logits
