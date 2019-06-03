@@ -144,26 +144,62 @@ class DecomposableAttentionPredictor(Predictor):
         adv_token_idx = indexed_tokens[which_token]
         print(adv_token_idx)
 
+        new_instances = self.get_model_predictions(inputs)
+        label = new_instances[0]["label"].label
+        print("start label:",label)
+        new_label = label
+        logits = 0
+        # handling ignore tokens
+        ignore_tokens = set(ignore_tokens)
+        num_ignore_tokens = 0
+        for token in new_instances[0][target_field].tokens:
+            if token in ignore_tokens:
+                num_ignore_tokens += 1
+        last_tokens = new_instances[0][target_field].tokens
 
-        grads,outputs = self.get_gradients(new_instances)
-        model_output = self._model.decode(outputs)
-        grad = grads["grad_input1"]
-        ret = self.hotflip_attack(grad[which_token], embedding_matrix, adv_token_idx)
-        ret = ret.data[0].detach().cpu().item()
-        print(ret)
-        i2t = vocab._index_to_token["tokens"]
-        print(i2t[ret])
-        print(new_instances[0][target_field].tokens)
-        new_instances[0][target_field].tokens[which_token] = Token(i2t[ret])
-        new_instances[0].indexed = False
-        print(new_instances[0][target_field].tokens)
+        while (True) :
+          last_label = new_label
+          last_logits = logits
+          #new_instances[0].fields.pop('label_logits', None)
 
-        grads,outputs = self.get_gradients(new_instances)
-        model_output = self._model.decode(outputs)
-        logits = model_output["label_logits"].detach().cpu().numpy()[0]
-        new_label = np.argmax(logits)
-        print("label:", new_label, "logits:",logits)
-        return {"final":"a"}
+          grads,outputs = self.get_gradients(new_instances)
+          model_output = self._model.decode(outputs)
+          logits = model_output["label_logits"].detach().cpu().numpy()[0]
+          new_label = np.argmax(logits)
+          print("label:", new_label, "logits:",logits)
+          print("------------------------")
+          if (new_label!=label):
+            #print(last_tokens)
+            break
+          #print(grads.keys())
+          last_tokens = list(new_instances[0][target_field].tokens)
+          new_instances = self.pathological_attack(grads["grad_input1"], new_instances, target_field, ignore_tokens)
+          print(new_instances[0])
+
+        print("final adv:", last_tokens," | label:",last_label," | logits:", last_logits)
+        # TODO: return something else
+        return sanitize({"final": last_tokens})
+
+
+        # grads,outputs = self.get_gradients(new_instances)
+        # model_output = self._model.decode(outputs)
+        # grad = grads["grad_input1"]
+        # ret = self.hotflip_attack(grad[which_token], embedding_matrix, adv_token_idx)
+        # ret = ret.data[0].detach().cpu().item()
+        # print(ret)
+        # i2t = vocab._index_to_token["tokens"]
+        # print(i2t[ret])
+        # print(new_instances[0][target_field].tokens)
+        # new_instances[0][target_field].tokens[which_token] = Token(i2t[ret])
+        # new_instances[0].indexed = False
+        # print(new_instances[0][target_field].tokens)
+
+        # grads,outputs = self.get_gradients(new_instances)
+        # model_output = self._model.decode(outputs)
+        # logits = model_output["label_logits"].detach().cpu().numpy()[0]
+        # new_label = np.argmax(logits)
+        # print("label:", new_label, "logits:",logits)
+        # return {"final":"a"}
 
     def beam_search(self, instances:List[Instance], label:int) -> List[Instance]:
         """
