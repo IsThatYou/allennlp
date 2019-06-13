@@ -1,10 +1,10 @@
-from typing import List, Iterator, Dict 
+from typing import List, Iterator, Dict
 import json
 from contextlib import contextmanager
 
 import numpy as np
-import torch 
-import math 
+import torch
+import math
 
 from allennlp.modules.text_field_embedders import TextFieldEmbedder
 from allennlp.common import Registrable
@@ -63,25 +63,11 @@ class Predictor(Registrable):
         instance = self._json_to_instance(inputs)
         return self.predict_instance(instance)
 
-    def interpret_from_json(self, inputs: JsonDict) -> JsonDict:
-        """
-        Uses the gradients from :func:`get_gradients` to provide 
-        normalized interpretations for specific models. 
-        """
-        raise RuntimeError("you need to implement this method if you want to give model interpretations")
-
-    def attack_from_json(self, inputs: JsonDict) -> JsonDict:
-        """
-        Uses the gradients from :func:`get_gradients` to provide 
-        adversarial attacks for specific models. 
-        """
-        raise RuntimeError("you need to implement this method if you want to give model attacks")
-
     def inputs_to_labeled_instances(self, inputs: JsonDict) -> List[Instance]:
         """
         Converts incoming json to a :class:`~allennlp.data.instance.Instance`,
-        runs the model on the newly created instance, and adds labels to the 
-        :class:`~allennlp.data.instance.Instance`s given by the model's output. 
+        runs the model on the newly created instance, and adds labels to the
+        :class:`~allennlp.data.instance.Instance`s given by the model's output.
 
         Returns
         -------
@@ -95,7 +81,7 @@ class Predictor(Registrable):
 
     def get_gradients(self, instances: List[Instance]) -> Dict[str, np.ndarray]:
         """
-        Gets the gradients of the loss with respect to the model inputs. 
+        Gets the gradients of the loss with respect to the model inputs.
 
         Parameters
         ----------
@@ -106,8 +92,8 @@ class Predictor(Registrable):
         Dict[str, np.ndarray]
             Dictionary of gradient entries for each input fed into the model.
             The keys have the form ``{grad_input_1: ..., grad_input_2: ... }``
-            up to the number of inputs given. 
-            
+            up to the number of inputs given.
+
         Notes
         -----
         Takes a ``JsonDict`` representing the inputs of the model and converts
@@ -129,7 +115,7 @@ class Predictor(Registrable):
 
         loss.backward()
 
-        # Remove hooks 
+        # Remove hooks
         for hook in self.hooks:
             hook.remove()
 

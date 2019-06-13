@@ -16,3 +16,14 @@ class SequenceField(Field[DataArray]):
 
     def empty_field(self) -> 'SequenceField':
         raise NotImplementedError
+
+    def __eq__(self, other) -> bool:
+        if isinstance(other, other.__class__):
+            for each in self.__dict__:
+                if self.__dict__[each] != other.__dict__[each]:
+                    return False
+            return True
+        else:
+            return id(self) == id(other)
+        # Otherwise it is not implmented
+        return NotImplemented
