@@ -273,10 +273,24 @@ class Hotflip(Attacker):
             final_tokens.append(last_tokens)
         print(final_tokens)
 
-        # print('\n')
+        # print('\n\n\n')
         # print(check_fields)
-        # print(new_instances[0]['label'].label)        
-        return sanitize({"final": final_tokens,"original": original, "label": new_instances[0]['label'].label})
+        # print('\n\n\n')
+        # print(new_instances[0])                
+        # print('\n\n\n')
+        # print(new_instances[0]['metadata'].metadata)                        
+        # return_fields = []
+        # for field in new_instances[0].keys():
+        #     if field == 'metadata':
+        #         return_fields.append(new_instances[0][field].metadata)
+        #     else:
+        #         return_fields.append(new_instances[0][field])
+        # print(return_fields)
+        # exit()
+
+        # return {"final": sanitize(final_tokens),"original": sanitize(original), "fields": return_fields}
+        # return sanitize({"final": final_tokens,"original": original, "label": new_instances[0]['label'].label})
+        return sanitize({"final": final_tokens,"original": original})
     def hotflip_attack(self,grad, embedding_matrix, adv_token_idx):    
         """
         TODO
