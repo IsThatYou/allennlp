@@ -147,9 +147,12 @@ class Model(torch.nn.Module, Registrable):
         batch_size = len(instances)
         with torch.no_grad():
             cuda_device = self._get_prediction_device()
+            # print("in forward: ",instances[0]["question"])
             dataset = Batch(instances)
             dataset.index_instances(self.vocab)
+            # print("in forward: ", dataset.instances[0]["question"])
             model_input = util.move_to_device(dataset.as_tensor_dict(), cuda_device)
+            # print("in forward: ", model_input["question"])
             outputs = self.decode(self(**model_input))
 
             instance_separated_output: List[Dict[str, numpy.ndarray]] = [{} for _ in dataset.instances]

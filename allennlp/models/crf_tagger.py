@@ -179,9 +179,13 @@ class CrfTagger(Model):
         loss : ``torch.FloatTensor``, optional
             A scalar loss to be optimised. Only computed if gold label ``tags`` are provided.
         """
+        # print(tokens)
         embedded_text_input = self.text_field_embedder(tokens)
+        # print(embedded_text_input)
         mask = util.get_text_field_mask(tokens)
-
+        print("MASK")
+        print("----")
+        print(mask)
         if self.dropout:
             embedded_text_input = self.dropout(embedded_text_input)
 
@@ -200,10 +204,22 @@ class CrfTagger(Model):
         predicted_tags = [x for x, y in best_paths]
 
         output = {"logits": logits, "mask": mask, "tags": predicted_tags}
-
+        
         if tags is not None:
+            print('TAGS')
+            print('----')
+            print(tags)
+            print()
+
+            print('LOSS MASK')
+            print('---------')
+            # tags[0] to get past batch dimension 
+            loss_mask = torch.tensor([[1 if tag != 0 else 0 for tag in tags[0]]])
+            print(loss_mask)
+            print()
+
             # Add negative log-likelihood as loss
-            log_likelihood = self.crf(logits, tags, mask)
+            log_likelihood = self.crf(logits, tags, loss_mask)
             output["loss"] = -log_likelihood
 
             # Represent viterbi tags as "class probabilities" that we can

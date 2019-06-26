@@ -138,7 +138,6 @@ class NumericallyAugmentedQaNet(Model):
                 answer_as_counts: torch.LongTensor = None,
                 metadata: List[Dict[str, Any]] = None) -> Dict[str, torch.Tensor]:
         # pylint: disable=arguments-differ
-
         question_mask = util.get_text_field_mask(question).float()
         passage_mask = util.get_text_field_mask(passage).float()
         embedded_question = self._dropout(self._text_field_embedder(question))
