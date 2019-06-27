@@ -1,10 +1,13 @@
 from overrides import overrides
-import copy
 from typing import List, Dict 
-import numpy
+import numpy as np
+import torch 
+import copy
 
-from allennlp.common.util import JsonDict
+from overrides import overrides
+from allennlp.common.util import JsonDict, sanitize 
 from allennlp.data import DatasetReader, Instance
+from allennlp.data.fields import ArrayField, ListField, LabelField
 from allennlp.data.tokenizers.word_splitter import SpacyWordSplitter
 from allennlp.models import Model
 from allennlp.predictors.predictor import Predictor
@@ -36,9 +39,9 @@ class SentenceTaggerPredictor(Predictor):
         sentence = json_dict["sentence"]
         tokens = self._tokenizer.split_words(sentence)
         return self._dataset_reader.text_to_instance(tokens)
-    
+
     @overrides
-    def predictions_to_labeled_instances(self, instance: Instance, outputs: Dict[str, numpy.ndarray]) -> List[Instance]:
+    def predictions_to_labeled_instances(self, instance: Instance, outputs: Dict[str, np.ndarray]) -> List[Instance]:
         tags = outputs['tags']
         tag_list = []
 
@@ -69,5 +72,3 @@ class SentenceTaggerPredictor(Predictor):
             print(new_instance)
 
         return instance_list 
-        
-

@@ -186,6 +186,7 @@ class CrfTagger(Model):
         print("MASK")
         print("----")
         print(mask)
+
         if self.dropout:
             embedded_text_input = self.dropout(embedded_text_input)
 

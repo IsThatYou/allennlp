@@ -1,8 +1,10 @@
-from typing import Dict, List
+from typing import List, Dict 
 import numpy
+
 from overrides import overrides
-from allennlp.common.util import JsonDict
+from allennlp.common.util import JsonDict, sanitize 
 from allennlp.data import Instance
+from allennlp.data.fields import LabelField
 from allennlp.predictors.predictor import Predictor
 from allennlp.data.fields import LabelField
 
@@ -43,10 +45,8 @@ class DecomposableAttentionPredictor(Predictor):
 
     @overrides
     def predictions_to_labeled_instances(self, instance: Instance, outputs: Dict[str, numpy.ndarray]) -> List[Instance]:
-        """
-        TODO
-        """
         label = numpy.argmax(outputs['label_logits'])
-        instance.add_field('label', LabelField(int(label), skip_indexing=True))
-        #instance.add_field('label_logits', MetadataField(outputs['label_logits']))
+        # We can skip indexing since we already have the integer representations
+        # of the strings ("entailment", etc.)
+        instance.add_field('label', LabelField(int(label), skip_indexing=True))        
         return [instance]

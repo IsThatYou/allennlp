@@ -1,11 +1,15 @@
 from typing import Dict, List
 from overrides import overrides
-import numpy
-from allennlp.common.util import JsonDict
+from allennlp.common.util import JsonDict, sanitize
+import numpy as np
+from overrides import overrides
+
 from allennlp.data import Instance
+from allennlp.data.tokenizers import Token
 from allennlp.predictors.predictor import Predictor
 from allennlp.data.fields import IndexField, TextField, ListField, LabelField, SpanField, SequenceLabelField
 from allennlp.data.tokenizers import Token
+from allennlp.data.dataset_readers.reading_comprehension.util import split_tokens_by_hyphen
 
 @Predictor.register('machine-comprehension')
 class BidafPredictor(Predictor):
@@ -43,23 +47,31 @@ class BidafPredictor(Predictor):
         return self._dataset_reader.text_to_instance(question_text, passage_text)
 
     @overrides
-    def predictions_to_labeled_instances(self, instance: Instance, outputs: Dict[str, numpy.ndarray]) -> List[Instance]:
-        """
-        TODO
-        """
-        #span_start = np.argmax(outputs['span_start_logits'])
-        #span_end = np.argmax(outputs['span_end_logits'])
-        #print(instance)
-        #print(outputs)
+    def predictions_to_labeled_instances(self, instance: Instance, outputs: Dict[str, np.ndarray]) -> List[Instance]:
+        print("*************", outputs)
+
+        # NOTE
+        # NAQANET has the following fields already on it!  
+        #   * answer_as_passage_spans
+        #   * answer_as_question_spans
+        #   * answer_as_add_sub_expressions
+        #   * answer_as_counts
+        # Thus we need to provide labels for them! 
+
+        # This is for the BiDAF model
         if 'best_span' in outputs: 
-            span_ind = outputs['best_span']
-            seq = instance["passage"]
-            instance.add_field('span_start', IndexField(int(span_ind[0]),seq))
-            instance.add_field('span_end', IndexField(int(span_ind[1]),seq))
+            print('BEST SPAN FOUND')
+            print(outputs['best_span'])
+            span_start_label = outputs['best_span'][0]
+            span_end_label = outputs['best_span'][1]
+
+            instance.add_field('span_start', IndexField(int(span_start_label), instance['passage']))
+            instance.add_field('span_end', IndexField(int(span_end_label), instance['passage']))
+
         # This is for NAQANet model 
         elif 'answer' in outputs:
-            #print(outputs)
             answer_type = outputs['answer']['answer_type']
+
             # When the problem is a counting problem
             if answer_type == 'count':
                 field = ListField([LabelField(int(outputs['answer']['count']), skip_indexing=True)])
@@ -142,6 +154,5 @@ class BidafPredictor(Predictor):
 
                 field = ListField([SpanField(word_span_start, word_span_end, instance['question'])])
                 instance.add_field('answer_as_question_spans', field)
-
-        # print("modified instance", instance)
+        
         return [instance]
