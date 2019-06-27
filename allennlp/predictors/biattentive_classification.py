@@ -8,7 +8,7 @@ from allennlp.data.fields import LabelField
 from allennlp.data.tokenizers.word_tokenizer import WordTokenizer
 
 @Predictor.register('sentiment-analysis')
-class TextClassifierPredictor(Predictor):
+class BiattentiveClassificationPredictor(Predictor):
     """
     Predictor for any model that takes in a sentence and returns
     a single class for it.  In particular, it can be used with
