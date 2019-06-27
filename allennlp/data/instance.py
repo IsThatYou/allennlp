@@ -29,7 +29,7 @@ class Instance(Mapping[str, Field]):
     # Add methods for ``Mapping``.  Note, even though the fields are
     # mutable, we don't implement ``MutableMapping`` because we want
     # you to use ``add_field`` and supply a vocabulary.
-    def __getitem__(self, key: str) -> Field:
+    def __getitem__(self, key: str) -> Field:        
         return self.fields[key]
 
     def __iter__(self):

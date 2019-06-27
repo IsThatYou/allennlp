@@ -118,7 +118,7 @@ class Predictor(Registrable):
         # Remove hooks
         for hook in self.hooks:
             hook.remove()
-
+                
         grad_dict = dict()
         for idx, grad in enumerate(self.extracted_grads):
             key = 'grad_input_' + str(idx + 1)
@@ -138,14 +138,14 @@ class Predictor(Registrable):
         self.extracted_grads = []
         self.hooks = []
 
-        def hook_layers(module, grad_in, grad_out):
+        def hook_layers(module, grad_in, grad_out):            
             self.extracted_grads.append(grad_out[0])
 
         # Register the hooks
-        for module in self._model.modules():
-            if isinstance(module, TextFieldEmbedder):
+        for module in self._model.modules():            
+            if isinstance(module, TextFieldEmbedder):                                
                 backward_hook = module.register_backward_hook(hook_layers)
-                self.hooks.append(backward_hook)
+                self.hooks.append(backward_hook)                    
 
     @contextmanager
     def capture_model_internals(self) -> Iterator[dict]:

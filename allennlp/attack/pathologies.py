@@ -77,7 +77,7 @@ class Pathologies(Attacker):
             # handling ignore tokens
             ignore_tokens = set(ignore_tokens)
             num_ignore_tokens = 0
-            for token in new_instances[0][target_field].tokens:
+            for token in new_instances[0][target_field].tokens:                
                 if str(token) in ignore_tokens:
                     num_ignore_tokens += 1
             last_tokens = new_instances[0][target_field].tokens
@@ -112,7 +112,7 @@ class Pathologies(Attacker):
                 print(outputs)
 
 
-                grads,outputs = self.predictor.get_gradients(new_instances)
+                grads,outputs = self.predictor.get_gradients(new_instances)                
                 #model_output = self.predictor._model.decode(outputs)
                 # print(outputs)
                 for each in outputs:
@@ -165,7 +165,7 @@ class Pathologies(Attacker):
                     equal = (cur_tags == og_tags)
                     if not equal:
                         break
-                last_tokens = list(new_instances[0][target_field].tokens) 
+                last_tokens = list(new_instances[0][target_field].tokens)                 
                 new_instances,idx = self.pathological_attack(grads[gradient_index], new_instances, target_field, ignore_tokens)
 
             
