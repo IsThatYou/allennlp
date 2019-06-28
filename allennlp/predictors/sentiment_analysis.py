@@ -15,10 +15,13 @@ class SentimentAnalysisPredictor(Predictor):
     @overrides
     def _json_to_instance(self, json_dict: JsonDict) -> Instance:
         tokens = json_dict["tokens"]        
-        tokenizer = WordTokenizer()
+        # the dataset reader for SST expects tokenized inputs
+        tokenizer = WordTokenizer() 
         tokens = [str(t) for t in tokenizer.tokenize(tokens)]        
         return self._dataset_reader.text_to_instance(tokens)
 
+    # converts the model's predictions to AllenNLP instance's with the label predicted from the model. For classification,
+    # this is simply the argmax of the model's output probabilities. 
     @overrides        
     def predictions_to_labeled_instances(self, instance: Instance, outputs: Dict[str, numpy.ndarray]) -> List[Instance]:        
         label = numpy.argmax(outputs['probs'])
