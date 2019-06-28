@@ -157,9 +157,9 @@ class Predictor(Registrable):
 
         # Register the hooks
         for module in self._model.modules():            
-            if isinstance(module, TextFieldEmbedder):                                
+            if isinstance(module, TextFieldEmbedder):                                                
                 backward_hook = module.register_backward_hook(hook_layers)
-                self.hooks.append(backward_hook)                    
+                self.hooks.append(backward_hook)                                
 
     @contextmanager
     def capture_model_internals(self) -> Iterator[dict]:

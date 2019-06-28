@@ -102,7 +102,7 @@ class Hotflip(Attacker):
         self.token_embedding = Embedding(num_embeddings=vocab.get_vocab_size('tokens'), embedding_dim=embedding_matrix.shape[1], weight=embedding_matrix,trainable=False)
 
 
-    def attack_from_json(self, inputs:JsonDict, target_field: str, gradient_index:str,ignore_tokens:List[str] = ["@@NULL@@"]):
+    def attack_from_json(self, inputs:JsonDict, target_field: str, gradient_index:str,ignore_tokens:List[str] = ["@@NULL@@",".","-",","]):
         JsonSet = set(inputs.keys())
         
         og_instances = self.predictor.inputs_to_labeled_instances(inputs)
@@ -141,7 +141,7 @@ class Hotflip(Attacker):
                 if str(token) in ignore_tokens:
                     num_ignore_tokens += 1
                     ignore_tokens_mask[idx] = 1
-            print(ignore_tokens_mask)
+            print(ignore_tokens_mask) # TODO this mask does nothing
 
             # handling fileds that need to be checked
             check_fields = set()

@@ -1,3 +1,4 @@
 from allennlp.interpretation.interpreter import Interpreter
 from allennlp.interpretation.simple_gradient import SimpleGradient
 from allennlp.interpretation.integrated_gradient import IntegratedGradient
+from allennlp.interpretation.smooth_gradient import SmoothGradient

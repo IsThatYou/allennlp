@@ -30,7 +30,7 @@ class BiattentiveClassificationPredictor(Predictor):
 
     @overrides        
     def predictions_to_labeled_instances(self, instance: Instance, outputs: Dict[str, numpy.ndarray]) -> List[Instance]:        
-        label = numpy.argmax(outputs['class_probabilities'])
+        label = numpy.argmax(outputs['probs'])
         instance.add_field('label', LabelField(int(label), skip_indexing=True))                    
         return [instance]
 
