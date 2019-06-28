@@ -31,26 +31,25 @@ class Pathologies(Attacker):
         for i in range(len(og_instances)):
             new_instances = [og_instances[i]]
             new_fields = set(new_instances[0].fields.keys())
-            print(new_fields)
             #check_fields = new_fields.difference(original_fields)
-            print(target_field)
+            # print(target_field)
             original = [x for x in new_instances[0][target_field].tokens]
             grads,outputs = self.predictor.get_gradients(new_instances)
-            print(grads)
-            print('\n\n\n')
-            print(original_fields)
-            print(new_fields)
-            print("check fields =",check_fields)
+            # print(grads)
+            # print('\n\n\n')
+            # print(original_fields)
+            # print(new_fields)
+            # print("check fields =",check_fields)
             #check_list = {x:new_instances[0][x] for x in check_fields}
             #print(check_list)
-            print(original_vals)
+            # print(original_vals)
             test_instances = self.predictor.inputs_to_labeled_instances(inputs)
             for key in new_fields:
                 if (key not in JsonSet) and (key != target_field):
                     check_fields.add(key)
                     check_list[key] = test_instances[0][key]
-            print("check fields = ",check_fields)
-            print("check list = ",check_list)
+            # print("check fields = ",check_fields)
+            # print("check list = ",check_list)
 
             # for key in new_fields:
             #     comp = test_instances[0][key].__eq__(new_instances[0][key])
@@ -90,8 +89,8 @@ class Pathologies(Attacker):
                 og_mask = []
                 og_tags = []
                 for label in og_label_list:
-                    print(label)
-                    print(label.label)
+                    #print(label)
+                    #print(label.label)
                     if label.label != "O":
                         tag_dict[label.label] += 1
                         tag_tok = tag_tok + label.label
@@ -100,24 +99,22 @@ class Pathologies(Attacker):
                         num_ignore_tokens +=1
                     else:
                         og_mask.append(0)
-                print(tag_dict)
-                print(tag_tok)
-                print(og_mask)
-                print("og_tags = ", og_tags)
+                #print(tag_dict)
+                #print(tag_tok)
+                #print(og_mask)
+                #print("og_tags = ", og_tags)
             else:
                 num_ignore_tokens = 1 # don't go below 1 token for classification/entailment/etc.
 
-            print("check fields =",check_fields)
+            #print("check fields =",check_fields)
             idx = -1
             while (len(new_instances[0][target_field])>=num_ignore_tokens) :
-                print(new_instances[0])
+                #print(new_instances[0])
                 #outputs = self.predictor._model.forward_on_instance(instance)
-                print(outputs)
+                #print(outputs)
 
 
                 grads,outputs = self.predictor.get_gradients(new_instances)                
-                print(grads)
-                print('\n\n\n')
                 #model_output = self.predictor._model.decode(outputs)
                 # print(outputs)
                 for each in outputs:
@@ -130,19 +127,19 @@ class Pathologies(Attacker):
                         #print(type(derail))
                         outputs[each] = derail
                 test_instances = self.predictor.predictions_to_labeled_instances(new_instances[0],outputs)
-                print(len(new_instances[0][target_field]),"------------------------")
+                #print(len(new_instances[0][target_field]),"------------------------")
                 label_change = False
                 if "tags" not in new_instances[0]:
                     for field in check_fields:
-                        print(field)
+                        #print(field)
                         # print(super(IndexField,new_instances[0][field]).__eq__(check_list[field]))
                         if field in new_instances[0].fields:
                             equal = new_instances[0][field].__eq__(check_list[field])
-                            print(equal)
+                            #print(equal)
                             #print(new_instances[0][field],check_list[field])
                         else:
                             equal = outputs[field] == check_list[field]
-                            print(equal)
+                            #print(equal)
                             # print(outputs[field],check_list[field])
                         if (not equal):
                             label_change = True
@@ -171,16 +168,15 @@ class Pathologies(Attacker):
                     if not equal:
                         break
                 last_tokens = list(new_instances[0][target_field].tokens)                 
-                print(grads)
-                print('\n\n\n')
+                #print(self.pathological_attack(grads[gradient_index], new_instances, target_field, ignore_tokens))
                 new_instances,idx = self.pathological_attack(grads[gradient_index], new_instances, target_field, ignore_tokens)
 
             
-            print("final adv:", last_tokens)
+            #print("final adv:", last_tokens)
             # TODO: return something else
-            print(original)
+            #print(original)
             final_tokens.append(last_tokens)
-        print(final_tokens)
+        #print(final_tokens)
         return sanitize({"final": final_tokens,"original":original})
 
     def pathological_attack(self, grads:numpy.ndarray, instances:List[Instance], target_field: str = "hypothesis", ignore_tokens:Set[str] = {"@@NULL@@"}) -> List[Instance]:     

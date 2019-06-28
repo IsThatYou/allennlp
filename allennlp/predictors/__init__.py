@@ -24,4 +24,4 @@ from allennlp.predictors.seq2seq import Seq2SeqPredictor
 from allennlp.predictors.simple_seq2seq import SimpleSeq2SeqPredictor
 from allennlp.predictors.text_classifier import TextClassifierPredictor
 from allennlp.predictors.wikitables_parser import WikiTablesParserPredictor
-from allennlp.predictors.biattentive_classification import BiattentiveClassificationPredictor
+from allennlp.predictors.sentiment_analysis import SentimentAnalysisPredictor
