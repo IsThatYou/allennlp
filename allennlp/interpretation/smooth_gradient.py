@@ -14,6 +14,7 @@ class SmoothGradient(Interpreter):
   def interpret_from_json(self, inputs: JsonDict) -> JsonDict:    
     labeled_instances = self.predictor.inputs_to_labeled_instances(inputs)
 
+    # loop through all embeddings (e.g., question and passage) and run Smoothgrad
     instances_with_grads = dict()
     for idx, instance in enumerate(labeled_instances):      
       grads = self.smooth_grads(instance)      
@@ -22,7 +23,8 @@ class SmoothGradient(Interpreter):
 
     return sanitize(instances_with_grads)
 
-  def _post_process(self, grads: Dict[str, numpy.ndarray]) -> None:    
+  def _post_process(self, grads: Dict[str, numpy.ndarray]) -> None:  
+    # normalize the gradients for visualization
     for key, grad in grads.items():      
       emb_grad = numpy.sum(grad, axis=1)
       normalized_grad = normalize_by_total_score(emb_grad)      
@@ -30,27 +32,18 @@ class SmoothGradient(Interpreter):
 
   def _register_forward_hook(self, stdev: int):  
     def forward_hook(module, input, output):
-      print("OUTPUT BEFORE")
-      print("-------------")
-      print(output)
-
       # sample random noise
       noise = torch.randn(output.shape).to(output.device) * (stdev * (output.detach().max() - output.detach().min()))
       
       # Change the embedding      
       output.add_(noise)
       
-      print()
-      print("OUTPUT AFTER")
-      print("------------")
-      print(output)
-    
     # Register the hook
     handle = None
     for module in self.predictor._model.modules():
         if isinstance(module, TextFieldEmbedder):
             handle = module.register_forward_hook(forward_hook)
-
+            
     return handle 
 
   def smooth_grads(self, instance: Instance) -> Dict[str, numpy.ndarray]:
