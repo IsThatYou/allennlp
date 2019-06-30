@@ -104,56 +104,34 @@ class Hotflip(Attacker):
 
     def attack_from_json(self, inputs:JsonDict, target_field: str, gradient_index:str,ignore_tokens:List[str] = ["@@NULL@@",".","-",","]):
         JsonSet = set(inputs.keys())
-        
-        og_instances = self.predictor.inputs_to_labeled_instances(inputs)
-        # label = new_instances[0]["label"].label
-        # embedder = self.predictor._model._text_field_embedder._token_embedders["tokens"]
-        original = list(og_instances[0][target_field].tokens)
-        print(original)
+
+        og_instances = self.predictor.inputs_to_labeled_instances(inputs)        
+        original = list(og_instances[0][target_field].tokens)        
         final_tokens = []
-        for i in range(len(og_instances)):
+        for i in range(len(og_instances)):            
             new_instances = [og_instances[i]]
             in_text_field = new_instances[0][target_field]._indexed_tokens
-
-            # padding_length = new_instances[0][target_field].get_padding_lengths()
-            # temp = new_instances[0][target_field].as_tensor(padding_length)
-            # print(temp)
-            # temp2 = embedder(temp["tokens"])
-            # print(temp2[0])
-            #print(token_embedding)
-    
-            # print(M._token_embedders["tokens"].weight.shape)
-            # tokens = new_instances[0][target_field].tokens
-            # print(tokens)
             indexed_tokens = in_text_field["tokens"]
             which_token = 0
             adv_token_idx = indexed_tokens[which_token]
-            print(indexed_tokens)
-            print(adv_token_idx)
 
-            # new_instances = self.predictor.inputs_to_labeled_instances(inputs)
-            print(new_instances[0])
-            # handling ignore tokens by creating a mask
+            # Create a mask to handle tokens which should be ignored
+            # TODO this does nothing
             ignore_tokens = set(ignore_tokens)
             num_ignore_tokens = 0
             ignore_tokens_mask = [0]*len(new_instances[0][target_field].tokens)
             for idx,token in enumerate(new_instances[0][target_field].tokens):
                 if str(token) in ignore_tokens:
                     num_ignore_tokens += 1
-                    ignore_tokens_mask[idx] = 1
-            print(ignore_tokens_mask) # TODO this mask does nothing
+                    ignore_tokens_mask[idx] = 1            
 
-            # handling fileds that need to be checked
-            check_fields = set()
+            # handling fileds that need to be checked            
             check_list = {}
             new_fields = set(new_instances[0].fields.keys())
             test_instances = self.predictor.inputs_to_labeled_instances(inputs)
             for key in new_fields:
-                if (key not in JsonSet) and (key != target_field):
-                    check_fields.add(key)
-                    check_list[key] = test_instances[0][key]
-            print("check fields = ",check_fields)
-            print("check list = ",check_list)
+                if (key not in JsonSet) and (key != target_field):                    
+                    check_list[key] = test_instances[0][key]            
 
             # checking for tags
             if "tags" in new_instances[0]:
@@ -161,9 +139,7 @@ class Hotflip(Attacker):
                 tag_dict = defaultdict(int)
                 tag_tok = ''
                 og_mask = []
-                for label in og_label_list:
-                    print(label)
-                    print(label.label)
+                for label in og_label_list:                    
                     if label.label != "O":
                         tag_dict[label.label] += 1
                         tag_tok = tag_tok + label.label
@@ -253,7 +229,7 @@ class Hotflip(Attacker):
                     if not equal:
                         break
                 else:
-                    for field in check_fields:
+                    for field in check_list.keys():
                         print(field)
                         # print(super(IndexField,new_instances[0][field]).__eq__(check_list[field]))
                         if field in new_instances[0].fields:
@@ -270,40 +246,18 @@ class Hotflip(Attacker):
                 if label_change:
                     break
                 
-            final_tokens.append(last_tokens)
-        print(final_tokens)
-
-        # print('\n\n\n')
-        # print(check_fields)
-        # print('\n\n\n')
-        # print(new_instances[0])                
-        # print('\n\n\n')
-        # print(new_instances[0]['metadata'].metadata)                        
-        # return_fields = []
-        # for field in new_instances[0].keys():
-        #     if field == 'metadata':
-        #         return_fields.append(new_instances[0][field].metadata)
-        #     else:
-        #         return_fields.append(new_instances[0][field])
-        # print(return_fields)
-        # exit()
-
-        # return {"final": sanitize(final_tokens),"original": sanitize(original), "fields": return_fields}
-        # return sanitize({"final": final_tokens,"original": original, "label": new_instances[0]['label'].label})
+            final_tokens.append(last_tokens)        
         return sanitize({"final": final_tokens,"original": original})
-    def hotflip_attack(self,grad, embedding_matrix, adv_token_idx):    
-        """
-        TODO
-        """
-        grad = torch.from_numpy(grad)
-        print(grad.shape)
-        print(embedding_matrix.shape)
+    
+
+    # The "Hotflip" attack described clearly in https://arxiv.org/abs/1903.06620, the below code is based on https://github.com/pmichel31415/translate/blob/paul/pytorch_translate/research/adversarial/adversaries/brute_force_adversary.py
+    def hotflip_attack(self,grad, embedding_matrix, adv_token_idx):            
+        grad = torch.from_numpy(grad)        
         embedding_matrix = embedding_matrix.cpu()    
         word_embeds = torch.nn.functional.embedding(torch.LongTensor([adv_token_idx]), embedding_matrix).detach().unsqueeze(0)
-        grad = grad.unsqueeze(0).unsqueeze(0)  
-        print(grad.shape)      
+        grad = grad.unsqueeze(0).unsqueeze(0)          
         new_embed_dot_grad = torch.einsum("bij,kj->bik", (grad, embedding_matrix))        
         prev_embed_dot_grad = torch.einsum("bij,bij->bi", (grad, word_embeds)).unsqueeze(-1)         
         neg_dir_dot_grad = -1 * (prev_embed_dot_grad - new_embed_dot_grad)            
         score_at_each_step, best_at_each_step = neg_dir_dot_grad.max(2)                    
-        return best_at_each_step[0]
+        return best_at_each_step[0] # return the best candidate

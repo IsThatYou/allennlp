@@ -14,10 +14,8 @@ from collections import defaultdict
 class Pathologies(Attacker):
     def __init__(self, predictor):
         super().__init__(predictor)
-    def attack_from_json(self, inputs:JsonDict, target_field: str, gradient_index:str,ignore_tokens:List[str] = ["@@NULL@@"]):
-        '''
-        TODO
-        '''
+
+    def attack_from_json(self, inputs:JsonDict, target_field: str, gradient_index:str,ignore_tokens:List[str] = ["@@NULL@@"]):                
         JsonSet = set(inputs.keys())
         # print(JsonSet)
         check_fields = set()
