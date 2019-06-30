@@ -102,15 +102,17 @@ class Hotflip(Attacker):
         self.token_embedding = Embedding(num_embeddings=vocab.get_vocab_size('tokens'), embedding_dim=embedding_matrix.shape[1], weight=embedding_matrix,trainable=False)
 
 
-    def attack_from_json(self, inputs:JsonDict, target_field: str, gradient_index:str,ignore_tokens:List[str] = ["@@NULL@@",".","-",","]):
+    def attack_from_json(self, inputs:JsonDict, target_field: str, gradient_index:str, ignore_tokens:List[str] = ["@@NULL@@",".","-",","]):
         JsonSet = set(inputs.keys())
         
+        print("INPUTS", inputs)
         og_instances = self.predictor.inputs_to_labeled_instances(inputs)
         # label = new_instances[0]["label"].label
         # embedder = self.predictor._model._text_field_embedder._token_embedders["tokens"]
         original = list(og_instances[0][target_field].tokens)
         print(original)
         final_tokens = []
+        new_prediction = None
         for i in range(len(og_instances)):
             new_instances = [og_instances[i]]
             in_text_field = new_instances[0][target_field]._indexed_tokens
@@ -268,10 +270,25 @@ class Hotflip(Attacker):
                             label_change = True
                             break
                 if label_change:
+                    # SENTIMENT ANALYSIS
+                    if "probs" in outputs:
+                        new_prediction = outputs["probs"]
+                    # TEXTUAL ENTAILMENT
+                    elif "label_probs" in outputs:
+                        new_prediction = outputs["label_probs"]
+                    # BIDAF RC
+                    elif "best_span_str" in outputs:
+                        new_prediction = outputs["best_span_str"]
+                    # NAQANET RC
+                    elif "answer" in outputs:
+                        ans_type = outputs["answer"]["answer_type"]
+                        if ans_type == "count":
+                            new_prediction = outputs["answer"]["count"]
+                        else:
+                            new_prediction = outputs["answer"]["value"]
                     break
-                
+
             final_tokens.append(last_tokens)
-        print(final_tokens)
 
         # print('\n\n\n')
         # print(check_fields)
@@ -290,7 +307,7 @@ class Hotflip(Attacker):
 
         # return {"final": sanitize(final_tokens),"original": sanitize(original), "fields": return_fields}
         # return sanitize({"final": final_tokens,"original": original, "label": new_instances[0]['label'].label})
-        return sanitize({"final": final_tokens,"original": original})
+        return sanitize({"final": final_tokens,"original": original, "new_prediction": new_prediction})
     def hotflip_attack(self,grad, embedding_matrix, adv_token_idx):    
         """
         TODO
