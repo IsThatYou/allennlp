@@ -29,7 +29,7 @@ class Hotflip(Attacker):
         b = torch.LongTensor(a)
         b = b.unsqueeze(0)
         c = {"tokens":b}                
-        if "token_characters" in self.Sedictor._dataset_reader._token_indexers:
+        if "token_characters" in self.predictor._dataset_reader._token_indexers:
             tokenizer = self.predictor._dataset_reader._token_indexers["token_characters"]._character_tokenizer
             t = tokenizer.batch_tokenize(all_tokens)            
             tt = tokenizer.tokenize("How")            
