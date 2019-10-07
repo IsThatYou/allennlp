@@ -116,8 +116,6 @@ class Predictor(Registrable):
 
         loss = outputs["loss"]
         self._model.zero_grad()
-
-        # grad, = torch.autograd.grad(loss, x, create_graph=True)
     
         loss.backward(retain_graph=True)        
 
