@@ -86,6 +86,8 @@ class SimpleGradient(SaliencyInterpreter):
             elif normalization == "l1_norm":
                 normalized_grads = summed_across_embedding_dim / torch.norm(summed_across_embedding_dim, p=1)
 
+            print(normalized_grads)
+
             # Get the gradient at position of Bob/Joe
             joe_bob_position = 0 # TODO, hardcoded position
 
