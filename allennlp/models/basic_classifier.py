@@ -112,6 +112,12 @@ class BasicClassifier(Model):
         """
         embedded_text = self._text_field_embedder(tokens)
         mask = get_text_field_mask(tokens).float()
+        # embedded_text.requires_grad = True    
+        # def extract_grad_hook(name):
+        #     def hook(grad):
+        #         print("ruaruaruarauraua:",grad)
+        #     return hook
+        # embedded_text.register_hook(extract_grad_hook('embeddings')) 
 
         if self._seq2seq_encoder:
             embedded_text = self._seq2seq_encoder(embedded_text, mask=mask)

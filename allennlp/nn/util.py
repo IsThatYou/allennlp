@@ -1543,6 +1543,9 @@ def find_embedding_layer(model: torch.nn.Module) -> torch.nn.Module:
                 # to actually run the text field embedder and construct a vector for each token.
                 if len(module._token_embedders) == 1:
                     embedder = list(module._token_embedders.values())[0]
+                    # print("embedder", module._token_embedders.values())
+                    # print("embedder1.5",list(module._token_embedders.values()))
+                    # print("embedder2",list(module._token_embedders.values())[0])
                     if isinstance(embedder, Embedding):
                         if embedder._projection is None:
                             # If there's a projection inside the Embedding, then we need to return

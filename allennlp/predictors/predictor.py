@@ -107,7 +107,6 @@ class Predictor(Registrable):
         """
         embedding_gradients: List[Tensor] = []
         hooks: List[RemovableHandle] = self._register_embedding_gradient_hooks(embedding_gradients)
-
         dataset = Batch(instances)
         dataset.index_instances(self._model.vocab)
         outputs = self._model.decode(

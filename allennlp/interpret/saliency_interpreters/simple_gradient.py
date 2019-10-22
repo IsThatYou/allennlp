@@ -1,14 +1,10 @@
 import math
-
 from typing import List
 import numpy
 import torch
-
 from allennlp.common.util import JsonDict, sanitize
 from allennlp.interpret.saliency_interpreters.saliency_interpreter import SaliencyInterpreter
 from allennlp.nn import util
-
-
 @SaliencyInterpreter.register("simple-gradient")
 class SimpleGradient(SaliencyInterpreter):
     def saliency_interpret_from_json(self, inputs: JsonDict) -> JsonDict:
@@ -19,8 +15,7 @@ class SimpleGradient(SaliencyInterpreter):
         labeled_instances = self.predictor.json_to_labeled_instances(inputs)
 
         # List of embedding inputs, used for multiplying gradient by the input for normalization
-        embeddings_list: List[numpy.ndarray] = []
-
+        #       embeddings_list: List[numpy.ndarray] = []​
         instances_with_grads = dict()
         for idx, instance in enumerate(labeled_instances):
             # Hook used for saving embeddings
@@ -60,13 +55,59 @@ class SimpleGradient(SaliencyInterpreter):
 
         return handle
 
-    def saliency_interpret_from_instances(self, labeled_instances) -> JsonDict:
+    def saliency_interpret_from_instances(self, labeled_instances, embedding_operator, normalization,normalization2) -> JsonDict:
+        # Get raw gradients and outputs
+        torch.autograd.set_detect_anomaly(True)
         grads, outputs = self.predictor.get_gradients(labeled_instances)
+
         # we only handle when we have 1 input at the moment, so this loop does nothing
         for key, grad in grads.items():
             grads_summed_across_batch = torch.sum(grad, axis=0)
-            summed_across_embedding_dim = torch.sum(grads_summed_across_batch, axis=1)
+
+            # Get rid of embedding dimension
+            summed_across_embedding_dim = None 
+            if embedding_operator == "dot_product":
+                batch_tokens = labeled_instances[0].fields['tokens']
+                batch_tokens = batch_tokens.as_tensor(batch_tokens.get_padding_lengths())
+                embeddings = self.predictor._model._text_field_embedder(batch_tokens)
+                embeddings = embeddings.squeeze(0).transpose(1,0)
+                summed_across_embedding_dim = torch.diag(torch.mm(grads_summed_across_batch, embeddings))
+            elif embedding_operator == "l2_norm":
+                summed_across_embedding_dim = torch.norm(grads_summed_across_batch, dim=1)
+
+            # Normalize the gradients 
+            normalized_grads = summed_across_embedding_dim
+            if normalization == "l2_norm":
+                fill = torch.norm(summed_across_embedding_dim)
+                # print(summed_across_embedding_dim)
+                print(fill,fill.grad)
+                normalized_grads = summed_across_embedding_dim / fill
+            elif normalization == "l1_norm":
+                normalized_grads = summed_across_embedding_dim / torch.norm(summed_across_embedding_dim, p=1)
+
+            print(normalized_grads)
+
+            # Get the gradient at position of Bob/Joe
             joe_bob_position = 0 # TODO, hardcoded position
-            final_loss = summed_across_embedding_dim[joe_bob_position]
+
+            # Note we use absolute value of grad here because we only care about magnitude
+            temp = [(idx, numpy.absolute(grad)) for idx, grad in enumerate(normalized_grads.detach().numpy())]
+            temp.sort(key=lambda t: t[1], reverse=True)
+            rank = [i for i, (idx, grad) in enumerate(temp) if idx == joe_bob_position][0]
+
+            # L1/L2 norm/sum, -> softmax
+            final_norm = None
+            softmax = torch.nn.Softmax(dim=0)
+            if normalization2 == "l2_norm":
+                normalized_grads = normalized_grads**2
+                normalized_grads = softmax(normalized_grads)
+            elif normalization2 == "l1_norm":
+                normalized_grads = torch.abs(normalized_grads)
+                normalized_grads = softmax(normalized_grads)
+                print(normalized_grads)
+
+            # Softmax -> NLLLoss  
+            
+            final_loss = normalized_grads[joe_bob_position]
             final_loss.requires_grad_()
-            return final_loss
+            return final_loss, rank
