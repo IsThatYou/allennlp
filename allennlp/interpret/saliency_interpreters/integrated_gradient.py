@@ -2,6 +2,7 @@ import math
 from typing import List, Dict, Any
 
 import numpy
+import torch
 
 from allennlp.common.util import JsonDict, sanitize
 from allennlp.data import Instance
@@ -40,7 +41,6 @@ class IntegratedGradient(SaliencyInterpreter):
         """
         Register a forward hook on the embedding layer which scales the embeddings by alpha. Used
         for one term in the Integrated Gradients sum.
-
         We store the embedding output into the embeddings_list when alpha is zero.  This is used
         later to element-wise multiply the input by the averaged gradients.
         """
@@ -95,6 +95,47 @@ class IntegratedGradient(SaliencyInterpreter):
         # Element-wise multiply average gradient by the input
         for idx, input_embedding in enumerate(embeddings_list):
             key = "grad_input_" + str(idx + 1)
-            ig_grads[key] *= input_embedding
+            ig_grads[key] *= torch.Tensor(input_embedding)
 
         return ig_grads
+
+    def saliency_interpret_from_instances(self, labeled_instances, embedding_operator, normalization) -> JsonDict:
+        for idx, instance in enumerate(labeled_instances):
+            # Run integrated gradients
+            grads = self._integrate_gradients(instance)
+
+            final_loss = 0
+            rank = None
+
+            # we only handle when we have 1 input at the moment, so this loop does nothing
+            for key, grad in grads.items():
+                # grads_summed_across_batch = torch.sum(grad, axis=0)
+                for idx, gradient in enumerate(grad):
+                    # Get rid of embedding dimension
+                    summed_across_embedding_dim = None 
+                    if embedding_operator == "l1_norm":
+                        summed_across_embedding_dim = torch.norm(grads_summed_across_batch, p=1, dim=1)
+                    elif embedding_operator == "l2_norm":
+                        summed_across_embedding_dim = torch.norm(gradient, dim=1)
+
+                    # Normalize the gradients 
+                    normalized_grads = None
+                    if normalization == "l2_norm":
+                        normalized_grads = summed_across_embedding_dim / torch.norm(summed_across_embedding_dim)
+                    elif normalization == "l1_norm":
+                        normalized_grads = summed_across_embedding_dim / torch.norm(summed_across_embedding_dim, p=1)
+
+                    # Get the gradient at position of Bob/Joe
+                    joe_bob_position = 0 # TODO, hardcoded position
+
+                    # Note we use absolute value of grad here because we only care about magnitude
+                    temp = [(idx, numpy.absolute(grad)) for idx, grad in enumerate(normalized_grads.detach().numpy())]
+                    temp.sort(key=lambda t: t[1], reverse=True)
+                    rank = [i for i, (idx, grad) in enumerate(temp) if idx == joe_bob_position][0]
+
+                    final_loss += normalized_grads[joe_bob_position]
+            print("finetuned loss", final_loss)
+            if final_loss < 0:
+                print("YOOOOOOOOOOOOOOOOOOOOOOO")
+            final_loss.requires_grad_()
+            return final_loss, rank

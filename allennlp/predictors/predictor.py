@@ -85,18 +85,15 @@ class Predictor(Registrable):
     def get_gradients(self, instances: List[Instance]) -> Tuple[Dict[str, Any], Dict[str, Any]]:
         """
         Gets the gradients of the loss with respect to the model inputs.
-
         Parameters
         ----------
         instances: List[Instance]
-
         Returns
         -------
         Tuple[Dict[str, Any], Dict[str, Any]]
         The first item is a Dict of gradient entries for each input.
         The keys have the form  ``{grad_input_1: ..., grad_input_2: ... }``
         up to the number of inputs given. The second item is the model's output.
-
         Notes
         -----
         Takes a ``JsonDict`` representing the inputs of the model and converts
@@ -115,14 +112,17 @@ class Predictor(Registrable):
 
         loss = outputs["loss"]
         self._model.zero_grad()
+
+        # grad, = torch.autograd.grad(loss, x, create_graph=True)
     
-        loss.backward(retain_graph=True)        
+        loss.backward(retain_graph=True)       
 
         # for hook in hooks:
         #     hook.remove()
 
         grad_dict = dict()
         for idx, grad in enumerate(embedding_gradients):
+            # print("loop embedding grad", grad)
             key = "grad_input_" + str(idx + 1)
             # grad_dict[key] = grad.detach().cpu().numpy()
             grad_dict[key] = grad
@@ -134,12 +134,10 @@ class Predictor(Registrable):
         Registers a backward hook on the
         :class:`~allennlp.modules.text_field_embedder.basic_text_field_embbedder.BasicTextFieldEmbedder`
         class. Used to save the gradients of the embeddings for use in get_gradients()
-
         When there are multiple inputs (e.g., a passage and question), the hook
         will be called multiple times. We append all the embeddings gradients
         to a list.
         """
-
         def hook_layers(module, grad_in, grad_out):
             embedding_gradients.append(grad_out[0])
 
@@ -153,12 +151,9 @@ class Predictor(Registrable):
         """
         Context manager that captures the internal-module outputs of
         this predictor's model. The idea is that you could use it as follows:
-
         .. code-block:: python
-
             with predictor.capture_model_internals() as internals:
                 outputs = predictor.predict_json(inputs)
-
             return {**outputs, "model_internals": internals}
         """
         results = {}
@@ -185,8 +180,8 @@ class Predictor(Registrable):
 
     def predict_instance(self, instance: Instance) -> JsonDict:
         outputs = self._model.forward_on_instance(instance)
-        return outputs
-        #return sanitize(outputs)        
+        # return outputs
+        return sanitize(outputs)        
 
     def predictions_to_labeled_instances(
         self, instance: Instance, outputs: Dict[str, numpy.ndarray]
@@ -243,10 +238,8 @@ class Predictor(Registrable):
     ) -> "Predictor":
         """
         Instantiate a :class:`Predictor` from an archive path.
-
         If you need more detailed configuration options, such as overrides,
         please use `from_archive`.
-
         Parameters
         ----------
         archive_path: ``str``
@@ -260,7 +253,6 @@ class Predictor(Registrable):
         dataset_reader_to_load: ``str``, optional (default="validation")
             Which dataset reader to load from the archive, either "train" or
             "validation".
-
         Returns
         -------
         A Predictor instance.

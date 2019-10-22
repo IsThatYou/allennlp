@@ -54,60 +54,56 @@ class SimpleGradient(SaliencyInterpreter):
         handle = embedding_layer.register_forward_hook(forward_hook)
 
         return handle
+  
 
-    def saliency_interpret_from_instances(self, labeled_instances, embedding_operator, normalization,normalization2) -> JsonDict:
+    def saliency_interpret_from_instances(self, labeled_instances, embedding_operator, normalization,normalization2="l1_norm",do_softmax=False) -> JsonDict:
         # Get raw gradients and outputs
-        torch.autograd.set_detect_anomaly(True)
         grads, outputs = self.predictor.get_gradients(labeled_instances)
 
+        final_loss = torch.zeros(grads["grad_input_1"].shape[1])
+        rank = None
+        joe_bob_position = 0 # TODO, hardcoded position
+        softmax = torch.nn.Softmax(dim=0)
         # we only handle when we have 1 input at the moment, so this loop does nothing
         for key, grad in grads.items():
-            grads_summed_across_batch = torch.sum(grad, axis=0)
+            # grads_summed_across_batch = torch.sum(grad, axis=0)
+            for idx, gradient in enumerate(grad):
+                # Get rid of embedding dimension
+                summed_across_embedding_dim = None 
+                if embedding_operator == "dot_product":
+                    batch_tokens = labeled_instances[idx].fields['tokens']
+                    batch_tokens = batch_tokens.as_tensor(batch_tokens.get_padding_lengths())
+                    embeddings = self.predictor._model._text_field_embedder(batch_tokens)
+                    embeddings = embeddings.squeeze(0).transpose(1,0)
+                    summed_across_embedding_dim = torch.diag(torch.mm(gradient, embeddings))
+                elif embedding_operator == "l2_norm":
+                    summed_across_embedding_dim = torch.norm(gradient, dim=1)
 
-            # Get rid of embedding dimension
-            summed_across_embedding_dim = None 
-            if embedding_operator == "dot_product":
-                batch_tokens = labeled_instances[0].fields['tokens']
-                batch_tokens = batch_tokens.as_tensor(batch_tokens.get_padding_lengths())
-                embeddings = self.predictor._model._text_field_embedder(batch_tokens)
-                embeddings = embeddings.squeeze(0).transpose(1,0)
-                summed_across_embedding_dim = torch.diag(torch.mm(grads_summed_across_batch, embeddings))
-            elif embedding_operator == "l2_norm":
-                summed_across_embedding_dim = torch.norm(grads_summed_across_batch, dim=1)
-
-            # Normalize the gradients 
-            normalized_grads = summed_across_embedding_dim
-            if normalization == "l2_norm":
-                fill = torch.norm(summed_across_embedding_dim)
-                # print(summed_across_embedding_dim)
-                print(fill,fill.grad)
-                normalized_grads = summed_across_embedding_dim / fill
-            elif normalization == "l1_norm":
-                normalized_grads = summed_across_embedding_dim / torch.norm(summed_across_embedding_dim, p=1)
-
-            print(normalized_grads)
-
-            # Get the gradient at position of Bob/Joe
-            joe_bob_position = 0 # TODO, hardcoded position
-
-            # Note we use absolute value of grad here because we only care about magnitude
-            temp = [(idx, numpy.absolute(grad)) for idx, grad in enumerate(normalized_grads.detach().numpy())]
-            temp.sort(key=lambda t: t[1], reverse=True)
-            rank = [i for i, (idx, grad) in enumerate(temp) if idx == joe_bob_position][0]
-
-            # L1/L2 norm/sum, -> softmax
-            final_norm = None
-            softmax = torch.nn.Softmax(dim=0)
-            if normalization2 == "l2_norm":
-                normalized_grads = normalized_grads**2
-                normalized_grads = softmax(normalized_grads)
-            elif normalization2 == "l1_norm":
-                normalized_grads = torch.abs(normalized_grads)
-                normalized_grads = softmax(normalized_grads)
-                print(normalized_grads)
-
-            # Softmax -> NLLLoss  
+                # Normalize the gradients 
+                normalized_grads = None
+                if normalization == "l2_norm":
+                    normalized_grads = summed_across_embedding_dim / torch.norm(summed_across_embedding_dim)
+                elif normalization == "l1_norm":
+                    normalized_grads = summed_across_embedding_dim / torch.norm(summed_across_embedding_dim, p=1)
             
-            final_loss = normalized_grads[joe_bob_position]
-            final_loss.requires_grad_()
-            return final_loss, rank
+
+                # Note we use absolute value of grad here because we only care about magnitude
+                temp = [(idx, numpy.absolute(grad)) for idx, grad in enumerate(normalized_grads.detach().numpy())]
+                temp.sort(key=lambda t: t[1], reverse=True)
+                rank = [i for i, (idx, grad) in enumerate(temp) if idx == joe_bob_position][0]
+
+                if normalization2 == "l2_norm":
+                    normalized_grads = normalized_grads**2
+                elif normalization2 == "l1_norm":
+                    normalized_grads = torch.abs(normalized_grads)
+                final_loss += normalized_grads
+        final_loss /= grads['grad_input_1'].shape[0]
+        # L1/L2 norm/sum, -> softmax
+        if do_softmax:
+            normalized_grads = softmax(normalized_grads)
+
+        
+        # print("finetuned loss", final_loss)
+        final_loss = final_loss[joe_bob_position]
+        final_loss.requires_grad_()
+        return final_loss, rank
