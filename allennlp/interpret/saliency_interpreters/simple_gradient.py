@@ -85,7 +85,6 @@ class SimpleGradient(SaliencyInterpreter):
                     normalized_grads = summed_across_embedding_dim / torch.norm(summed_across_embedding_dim)
                 elif normalization == "l1_norm":
                     normalized_grads = summed_across_embedding_dim / torch.norm(summed_across_embedding_dim, p=1)
-            
 
                 # Note we use absolute value of grad here because we only care about magnitude
                 temp = [(idx, numpy.absolute(grad)) for idx, grad in enumerate(normalized_grads.detach().numpy())]
@@ -96,6 +95,9 @@ class SimpleGradient(SaliencyInterpreter):
                     normalized_grads = normalized_grads**2
                 elif normalization2 == "l1_norm":
                     normalized_grads = torch.abs(normalized_grads)
+
+                normalized_grads = torch.nn.utils.rnn.pad_sequence([final_loss, normalized_grads]).transpose(1, 0)[1]
+
                 final_loss += normalized_grads
         final_loss /= grads['grad_input_1'].shape[0]
         # L1/L2 norm/sum, -> softmax
